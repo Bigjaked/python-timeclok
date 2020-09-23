@@ -9,18 +9,6 @@ I built this program because I needed the functionality that it has, and I also 
 break from the project I was working on.
 The reason that it is named clok, is because cloc is taken, and clock could be as well.
 
-## Setup
-In order to setup the app you first need to install it. Then you just do the following to
-initialize the database.
-
-```shell script
-# Create the local sqlite database
-python clok.py init
-```
-This program creates a sqlite database at ~/.timeclok/time-clock.db which it stores
-everything in. Currently this project only supports linux/mac, but changing it to support 
-windows would be pretty simple, just change the variables in core/defines to directories
-that you have access to and it will work.
 
 ## Installation
 Download the repo to your system. Then Do the following. Installation currently requires
@@ -77,6 +65,19 @@ experience of it.
 #### Note
 If you followed the installation instructions, then instead of typing python clok.py you 
 can just type clok
+
+## Setup
+In order to setup the app you first need to install it. Then you just do the following to
+initialize the database.
+
+```shell script
+# Create the local sqlite database
+python clok.py init
+```
+This program creates a sqlite database at ~/.timeclok/time-clock.db which it stores
+everything in. Currently this project only supports linux/mac, but changing it to support 
+windows would be pretty simple, just change the variables in core/defines to directories
+that you have access to and it will work.
 
 ### Clocking In
 ```shell script
