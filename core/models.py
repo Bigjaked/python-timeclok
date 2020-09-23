@@ -209,7 +209,7 @@ class Journal(Model, SurrogatePK, Tracked, SpanQuery):
 
     def __repr__(self):
         return journal_format_row(
-            self.date_key, self.month_key, self.week_key, self.entry
+            self.id, self.date_key, self.month_key, self.week_key, self.entry
         )
 
     def __str__(self):
@@ -217,12 +217,12 @@ class Journal(Model, SurrogatePK, Tracked, SpanQuery):
 
 
 def journal_row_header():
-    return journal_format_row("Date Key", "Month", "Week", "Journal Entry")
+    return journal_format_row("ID", "Date Key", "Month", "Week", "Journal Entry")
 
 
-def journal_format_row(date, month, week, journal_entry) -> str:
-    print(date, month, week, journal_entry)
+def journal_format_row(id, date, month, week, journal_entry) -> str:
     return (
+        f"{id:<6}"
         f"{date:<10} "
         f"{month:<6} "
         f"{week:<6} "

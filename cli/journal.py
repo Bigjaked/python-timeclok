@@ -4,7 +4,7 @@ import typer
 from typer import Argument, Option
 
 from core.models import Journal, journal_row_header
-
+from sqlalchemy.orm.exc import NoResultFound
 
 app = typer.Typer()
 
@@ -45,3 +45,12 @@ def clear(period: int = Argument(None, help="the period to clear")):
     for r in records:
         print(r)
         r.delete()
+
+
+@app.command()
+def delete(id_=Argument(None, help="The id of the time_clock record to delete")):
+    if id_ is not None:
+        try:
+            Journal.delete_by_id(id_)
+        except NoResultFound:
+            print(f"Record ({id_}) does not exist")

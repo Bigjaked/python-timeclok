@@ -78,9 +78,9 @@ def clear(period: int = Argument(None, help="the period to clear")):
 
 
 @app.command()
-def delete(id=Argument(None, help="The id of the time_clock record to delete")):
-    if id is not None:
+def delete(id_=Argument(None, help="The id of the time_clock record to delete")):
+    if id_ is not None:
         try:
-            r = Clock.delete_by_id(id)
+            Clock.delete_by_id(id_)
         except NoResultFound:
-            print(f"Record ({id}) does not exist")
+            print(f"Record ({id_}) does not exist")
