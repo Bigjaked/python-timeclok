@@ -47,6 +47,7 @@ python timeclock.py clock in --when "2020-09-20 08:00:00" --out "2020-09-20 08:0
 # Display current days status
 python timeclock.py status
 # (prints the following)
+# ID    Date Key   Month  Week   Clock In             Clock Out            Hours 
 # 2     20200923   9      38     2020-09-22 08:03:00  2020-09-22 10:00:00  1.95  
 # 3     20200923   9      38     2020-09-23 08:05:00  2020-09-23 14:03:58  5.983 
 # 4     20200923   9      38     2020-09-22 12:30:00  2020-09-22 17:00:00  4.5   
