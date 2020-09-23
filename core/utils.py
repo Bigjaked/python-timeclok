@@ -206,7 +206,7 @@ class Memoized(object):
 
 def get_date_key(key: Union[datetime, int, str] = None) -> int:
     if isinstance(key, datetime):
-        int(key.strftime("%Y%m%d"))
+        return int(key.strftime("%Y%m%d"))
     elif isinstance(key, int):
         return key
     elif isinstance(key, str):

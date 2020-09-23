@@ -36,7 +36,7 @@ def in_(
         a.update_span()
         a.save()
 
-    elif when is not None:
+    elif when is not None and out is None:
         Clock.clock_in_when(when)
     else:
         if first:
@@ -54,14 +54,26 @@ def out(when: datetime = Option(None, help="Set a specific time to clock in"),):
 
 
 @app.command()
-def status(period: str = Option("day", help="the period to print a summary for")):
+def status(
+    period: str = Argument("week", help="the period to print a summary for"),
+    key: int = Option(None, help="the key to display, defaults to current period"),
+):
     if period.lower() == "day":
-        records = Clock.get_by_date_key()
-        total_hours = sum([i.time_span for i in records]) / SECONDS_PER_HOUR
-        print(clock_row_header())
-        for i in records:
-            print(i)
-        print(f"Total Hours Worked: {round(total_hours,3)}")
+        records = Clock.get_by_date_key(key)
+    elif period.lower() == "week":
+        records = Clock.get_by_week_key(key)
+    elif period.lower() == "month":
+        records = Clock.get_by_month_key(key)
+    else:
+        print(f"Error: period must be one of (day, week, month) not {period}")
+        raise ValueError()
+
+    total_hours = sum([i.time_span for i in records]) / SECONDS_PER_HOUR
+
+    print(clock_row_header())
+    for i in records:
+        print(i)
+    print(f"Total Hours Worked: {round(total_hours,3)}")
 
 
 @app.command()
@@ -75,6 +87,7 @@ def clear(period: int = Argument(None, help="the period to clear")):
     for r in records:
         print(r)
         r.delete()
+    Clock.db().commit()
 
 
 @app.command()
