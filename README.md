@@ -1,4 +1,4 @@
-Time Clok
+TimeClok
 ==========
 
 This is a simple time clock app that I wrote to keep track of time for different jobs. It 
@@ -7,6 +7,7 @@ find in businesses all over the world. It has a pretty simple command line inter
 includes a few journaling commands as well.
 I built this program because I needed the functionality that it has, and I also needed a 
 break from the project I was working on.
+The reason that it is named clok, is because cloc is taken, and clock could be as well.
 
 ## Setup
 In order to setup the app you first need to install it. Then you just do the following to
@@ -16,13 +17,50 @@ initialize the database.
 # Create the local sqlite database
 python clok.py init
 ```
-This program creates a sqlite database at ~/.timeclock/time-clock.db which it stores
+This program creates a sqlite database at ~/.timeclok/time-clock.db which it stores
 everything in. Currently this project only supports linux/mac, but changing it to support 
 windows would be pretty simple, just change the variables in core/defines to directories
 that you have access to and it will work.
 
-I will put some better installation instructions here later, I'm strapped for time at the 
-moment.
+## Installation
+Download the repo to your system. Then Do the following. Installation currently requires
+```shell script
+cd timeclok # Change directories into the timeclok dir
+
+# install the dependencies and create a virtual environment with pipenv
+pipenv install
+
+# Now run this command. It should output the file path of the virtual environment
+pipenv --venv
+# For example mine prints: "~/.local/share/virtualenvs/timeclok-VkAi0thm"
+
+# Now Edit the clok.sh file. And change the following 2 variables.
+# copy the output of pipenv --venv and past it where <path_to_your_python_bin> is below
+PYTHON_BIN=<path_to_your_python_bin>
+WORKING_DIR=<the location of your timeclok directory>
+
+# Here are mine for an example. Yours will be a little different
+PYTHON_BIN=~/.local/share/virtualenvs/timeclok-VkAi0thm
+WORKING_DIR=~/Projects/timeclok
+
+# Make sure that your run script can be executed by running the following.
+chmod +x clok.sh
+
+# Now change back to your home directory. Then run the following command to create a link
+# to the executable script called clok in your home directory.
+ln <the timeclok directory>/clok.sh clok
+# here is the command I used as an example
+ln ~/Projects/timeclok/clok.sh
+
+# Now your all set, Run the following to make sure everything works
+./clok --help
+
+# if you dont want to type the ./ before clok everytime then add the following
+# to the end of your .bashrc file. Then close your terminal and open a new one.
+alias clok="./clok"
+```
+If I knew how to make the install easier I would. If anything just for the practice and
+experience of it.
 
 ## Future plans
 * I plan to tie the journal messaging into the time clock directly and deprecate the journal
@@ -36,31 +74,34 @@ moment.
   out the current job at the same time. 
 * Add windows support.
 
+#### Note
+If you followed the installation instructions, then instead of typing python clok.py you 
+can just type clok
 
 ### Clocking In
 ```shell script
 # clock in
-python clok.py clock in
+python clok.py in
 
 # clock in at a certain time
-python clok.py clock in --when "2020-09-22 08:00:00"
+python clok.py in --when "2020-09-22 08:00:00"
 ```
 
 ### Clocking Out
 ```shell script
 # clock out
-python clok.py clock out
+python clok.py out
 # Note: clock out can be called multiple times without calling a new clock in. This
 # Will just overwrite the last clock out time with the current time.
 
 # clock out a certain time
-python clok.py clock out --when "2020-09-22 17:00:00"
+python clok.py out --when "2020-09-22 17:00:00"
 ```
 
 ### Adding Past Days
 ```shell script
 # clock in at a certain time
-python clok.py clock in --when "2020-09-20 08:00:00" --out "2020-09-20 08:00:00"
+python clok.py in --when "2020-09-20 08:00:00" --out "2020-09-20 08:00:00"
 ```
 
 ### Showing status
@@ -115,7 +156,7 @@ python clok.py journal m  --when "2020-09-22 08:00:00" "message"
 The following command dumps the entire database to a json file. This includes the time clock
 entries as well as the journal entries.
 ```shell script
-# Dump the database to ~/.timeclock/time-clock{date-stamp}.json
+# Dump the database to ~/.timeclok/time-clock{date-stamp}.json
 python clok.py dump 
 
 # Dump to specified file
@@ -130,7 +171,7 @@ First find the ID number of the entry you want to delete using clok.py status
 then use the following to delete it.
 ```shell script
 # Delete a record from the time log
-python clok.py clock delete {id}
+python clok.py delete {id}
 python clok.py journal delete {id}
 ```
 
@@ -139,6 +180,6 @@ First find the ID number of the entry you want to delete using clok.py status
 then use the following to delete it.
 ```shell script
 # Delete a record from the time log
-python clok.py clock clear
+python clok.py clear
 python clok.py journal clear
 ```

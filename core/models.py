@@ -88,19 +88,21 @@ class Clock(Model, SurrogatePK, SpanQuery):
         return cls.query().order_by(desc(cls.time_in)).first()
 
     @classmethod
-    def first_clock_in(cls, minus: int):
+    def first_clock_in(cls, minus: int, verbose=False):
         now = datetime.now() - timedelta(minutes=minus)
+        if verbose:
+            print(f"Clocking you in at {now:%Y-%m-%d %H:%M:%S}")
         a = cls(time_in=now)
         a.save()
 
     @classmethod
-    def clock_in(cls):
-        cls.clock_in_when(datetime.now())
+    def clock_in(cls, verbose=False):
+        cls.clock_in_when(datetime.now(), verbose)
 
     @classmethod
     def clock_in_when(cls, when: datetime, verbose=False):
         if verbose:
-            print(f"Clocking in at {when:%Y-%m-%d %H:%M:%S}")
+            print(f"Clocking you in at {when:%Y-%m-%d %H:%M:%S}")
         c = cls(
             time_in=when,
             date_key=get_date_key(when),
@@ -110,13 +112,13 @@ class Clock(Model, SurrogatePK, SpanQuery):
         c.save()
 
     @classmethod
-    def clock_out(cls):
-        cls.clock_out_when(datetime.now())
+    def clock_out(cls, verbose=False):
+        cls.clock_out_when(datetime.now(), verbose)
 
     @classmethod
     def clock_out_when(cls, when: datetime, verbose=False):
         if verbose:
-            print(f"Clocking out at {when:%Y-%m-%d %H:%M:%S}")
+            print(f"Clocking you out at {when:%Y-%m-%d %H:%M:%S}")
         r = cls.get_last_record()
         r.time_out = when
         r.update_span()
