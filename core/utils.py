@@ -215,13 +215,13 @@ def get_date_key(key: Union[datetime, int, str] = None) -> int:
     return int(datetime.now().strftime("%Y%m%d"))
 
 
-def get_week(date: datetime) -> int:
+def get_week(date: datetime = None) -> int:
     if date is None:
         date = datetime.now()
     return int(date.strftime("%U"))
 
 
-def get_month(date: datetime) -> int:
+def get_month(date: datetime = None) -> int:
     if date is None:
         date = datetime.now()
     return date.month
