@@ -1,13 +1,24 @@
 #!/usr/bin/env bash
 
+VENV_LOC=".venv_location"
+WORKING_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+if [[ ! -f $VENV_LOC ]]; then
+  touch $VENV_LOC
+  pipenv --venv > $VENV_LOC
+fi
 
-PYTHON_BIN=/home/bigjake/.local/share/virtualenvs/timeclok-zahqZ-lK
-# Edit this ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ path to be
-# the path of your virtual environments python binary.
+VENV="$(cat $VENV_LOC)"
+if [[ -f "$VENV/bin/python" ]]; then
+  PYTHON="$VENV/bin/python"
+elif [[ -f "$VENV/Scripts/python.exe" ]]; then
+  PYTHON="$VENV/Scripts/python.exe"
+fi
 
-WORKING_DIR=~/Projects/timeclok
-# Edit this ^^^^^^^^^^^^^^^^^^^^ to be the location of your timeclok directory
 
+echo "venv_loc: $VENV_LOC"
+echo "working_dir: $WORKING_DIR"
+echo "venv: $VENV"
+echo "python: $PYTHON"
 # Call program and forward all command line arguments
-$PYTHON_BIN/bin/python  $WORKING_DIR/clok.py "$@"
+$PYTHON  $WORKING_DIR/clok.py "$@"
 

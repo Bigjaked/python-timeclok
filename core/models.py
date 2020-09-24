@@ -6,8 +6,9 @@ from datetime import datetime, timedelta
 from typing import Union
 
 from sqlalchemy import Column, DateTime, Integer, TEXT, UniqueConstraint, desc
+from sqlalchemy.orm import relationship
 
-from core.database import Model, SurrogatePK, Tracked
+from core.database import Model, SurrogatePK, Tracked, reference_col
 from core.defines import SECONDS_PER_HOUR
 from core.utils import get_date_key, get_month, get_week
 
@@ -38,9 +39,9 @@ class SpanQuery:
         return [i.to_dict for i in cls.query().all()]
 
 
-class Clock(Model, SurrogatePK, SpanQuery):
-    __tablename__ = "time_clock"
-    __table_args__ = (UniqueConstraint("time_in", "time_out", name="natural",),)
+class Clok(Model, SurrogatePK, SpanQuery):
+    __tablename__ = "time_clok"
+    __table_args__ = (UniqueConstraint("time_in", "time_out", name="natural"),)
     id = Column(Integer, primary_key=True, autoincrement=True)
     date_key = Column(Integer, default=get_date_key)
     week_key = Column(Integer, default=get_week)
@@ -48,6 +49,7 @@ class Clock(Model, SurrogatePK, SpanQuery):
     time_in = Column(DateTime, default=datetime.now)
     time_out = Column(DateTime, default=None)
     time_span = Column(Integer, default=0)
+    journal_entries = relationship("time_clok_journal.clok_id")
 
     def __init__(
         self,
@@ -56,12 +58,15 @@ class Clock(Model, SurrogatePK, SpanQuery):
         month_key: int = None,
         time_in: datetime = None,
         time_out: datetime = None,
+        journal_msg: str = None,
     ):
         self.date_key = date_key
         self.week_key = week_key
         self.month_key = month_key
         self.time_in = time_in
         self.time_out = time_out
+        if journal_msg is not None:
+            self.add_journal(journal_msg)
 
     @property
     def to_dict(self):
@@ -72,6 +77,7 @@ class Clock(Model, SurrogatePK, SpanQuery):
             time_in=self.time_in,
             time_out=self.time_out,
             time_span=self.time_span,
+            journals=self.get_journals,
         )
 
     def update_span(self):
@@ -110,6 +116,7 @@ class Clock(Model, SurrogatePK, SpanQuery):
             week_key=get_week(when),
         )
         c.save()
+        return c
 
     @classmethod
     def clock_out(cls, verbose=False):
@@ -145,7 +152,7 @@ class Clock(Model, SurrogatePK, SpanQuery):
         else:
             time_out = self.time_out.strftime("%Y-%m-%d %H:%M:%S")
 
-        return clock_format_row(
+        clok_info = _clock_format_row(
             self.id,
             self.date_key,
             self.month_key,
@@ -154,93 +161,65 @@ class Clock(Model, SurrogatePK, SpanQuery):
             time_out,
             self.span,
         )
+        journals = [i for i in self.journal_entries]
+        if journals:
+            j_info = "\n".join([str(i) for i in journals])
+            clok_info += f"\n{j_info}"
+        return clok_info
 
     def __str__(self):
         return self.__repr__()
+
+    def add_journal(self, msg: str):
+        j = Journal(clock=self, entry=msg)
+        j.save()
+
+    @property
+    def get_journals(self):
+        journals = self.journal_entries
+        if journals is not None:
+            return [j.entry for j in journals]
+        else:
+            return None
 
 
 class Journal(Model, SurrogatePK, Tracked, SpanQuery):
-    __tablename__ = "time_clock_journal"
-    id = Column(Integer, primary_key=True, autoincrement=True)
+    __tablename__ = "time_clok_journal"
+
+    __table_args__ = (UniqueConstraint("id", "time", name="natural"),)
+    clok_id = reference_col("time_clok")
     time = Column(DateTime, default=datetime.now)
-    date_key = Column(Integer, default=get_date_key)
-    week_key = Column(Integer, default=get_week)
-    month_key = Column(Integer, default=get_month)
     entry = Column(TEXT)
 
-    def __init__(
-        self,
-        time: datetime = None,
-        date_key: int = None,
-        week_key: int = None,
-        month_key: int = None,
-        entry: str = None,
-    ):
+    def __init__(self, clock: Clok, time: datetime = None, entry: str = None):
+        self.clok_id = clock.id
         self.time = time
-        self.date_key = date_key
-        self.week_key = week_key
-        self.month_key = month_key
         self.entry = entry
-
-    @classmethod
-    def journal_when(cls, when: datetime, message: str, verbose=False):
-        if verbose:
-            print(f"Recording journal entry for {when:%Y-%m-%d %H:%M:%S}")
-        c = cls(
-            time=when,
-            date_key=get_date_key(when),
-            month_key=get_month(when),
-            week_key=get_week(when),
-            entry=message,
-        )
-        c.save()
-
-    @classmethod
-    def journal(cls, message: str):
-        cls.journal_when(datetime.now(), message)
 
     @property
     def to_dict(self):
-        return dict(
-            time=self.time,
-            date_key=self.date_key,
-            week_key=self.week_key,
-            month_key=self.month_key,
-            entry=self.entry,
-        )
+        return dict(time=self.time, entry=self.entry)
 
     def __repr__(self):
-        return journal_format_row(
-            self.id, self.date_key, self.month_key, self.week_key, self.entry
-        )
+        return _journal_format_row(self.id, self.entry)
 
     def __str__(self):
         return self.__repr__()
 
 
-def journal_row_header():
-    return journal_format_row("ID", "Date Key", "Month", "Week", "Journal Entry")
-
-
-def journal_format_row(id, date, month, week, journal_entry) -> str:
-    return (
-        f"{id:<6}"
-        f"{date:<10} "
-        f"{month:<6} "
-        f"{week:<6} "
-        f"{journal_entry:<58}"  # 80 - (10 + 6 + 6)
-    )
+def _journal_format_row(journal_id, journal_entry) -> str:
+    return f"    - ID: {journal_id:<6} {journal_entry:<64}"  # 80 - ( 6 + 10)
 
 
 def clock_row_header():
-    return clock_format_row(
+    return _clock_format_row(
         "ID", "Date Key", "Month", "Week", "Clock In", "Clock Out", "Hours "
     )
 
 
-def clock_format_row(id, date, month, week, time_in, time_out, time_span) -> str:
+def _clock_format_row(clok_id, date, month, week, time_in, time_out, time_span) -> str:
     return (
-        f"{id:<6}"
+        f"{clok_id:<6} "
         f"{date:<10} "
         f"{month:<6} "
         f"{week:<6} "

@@ -10,21 +10,6 @@ app = typer.Typer()
 
 
 @app.command()
-def m(
-    message: str = Argument(
-        "",
-        help="The message to record for the journal entry, this message may contain new "
-        "lines and special characters.",
-    ),
-    when: datetime = Option(None, help="Set this journal entries time"),
-):
-    if when is not None:
-        Journal.journal_when(when, message)
-    else:
-        Journal.journal(message)
-
-
-@app.command()
 def status(period: str = Option("day", help="the period to print a summary for")):
     if period.lower() == "day":
         records = Journal.get_by_date_key()
