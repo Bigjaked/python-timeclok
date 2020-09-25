@@ -20,19 +20,44 @@ class SpanQuery:
             dk = get_date_key()
         else:
             dk = get_date_key(key)
-        return [i for i in (cls.query().filter(cls.date_key == dk).all())]
+        return [
+            i
+            for i in (
+                cls.query()
+                .filter(cls.date_key == dk)
+                .filter(cls.job_id == State.get().job.id)
+                .all()
+            )
+        ]
 
     @classmethod
     def get_by_month_key(cls, key: Union[int, str] = None):
         if key is None:
             key = get_month()
-        return [i for i in (cls.query().filter(cls.month_key == int(key)).all())]
+        return [
+            i
+            for i in (
+                cls.query()
+                .filter(
+                    cls.month_key == int(key).filter(cls.job_id == State.get().job.id)
+                )
+                .all()
+            )
+        ]
 
     @classmethod
     def get_by_week_key(cls, key: Union[int, str] = None):
         if key is None:
             key = get_week()
-        return [i for i in (cls.query().filter(cls.week_key == int(key)).all())]
+        return [
+            i
+            for i in (
+                cls.query()
+                .filter(cls.week_key == int(key))
+                .filter(cls.job_id == State.get().job.id)
+                .all()
+            )
+        ]
 
     @classmethod
     def dump(cls):
@@ -45,8 +70,8 @@ class State(Model, SurrogatePK):
     # save the current clok in to state
     clok_id = reference_col("time_clok", default=None, nullable=True)
 
-    clok = relationship("Clok")
-    job = relationship("Job")
+    clok = relationship("Clok", lazy="joined")
+    job = relationship("Job", lazy="joined")
 
     @classmethod
     def get(cls):
@@ -99,8 +124,8 @@ class Clok(Model, SurrogatePK, SpanQuery):
     time_out = Column(DateTime, default=None)
     time_span = Column(Integer, default=0)
 
-    journal_entries = relationship("Journal")
-    job = relationship("Job")
+    journal_entries = relationship("Journal", lazy="joined")
+    job = relationship("Job", lazy="joined")
 
     def __init__(
         self,
@@ -123,6 +148,7 @@ class Clok(Model, SurrogatePK, SpanQuery):
     @property
     def to_dict(self):
         return dict(
+            job=self.job.name,
             date_key=self.date_key,
             week_key=self.week_key,
             month_key=self.month_key,
