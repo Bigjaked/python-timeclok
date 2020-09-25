@@ -15,10 +15,10 @@ elif [[ -f "$VENV/Scripts/python.exe" ]]; then
 fi
 
 
-echo "venv_loc: $VENV_LOC"
-echo "working_dir: $WORKING_DIR"
-echo "venv: $VENV"
-echo "python: $PYTHON"
+#echo "venv_loc: $VENV_LOC"
+#echo "working_dir: $WORKING_DIR"
+#echo "venv: $VENV"
+#echo "python: $PYTHON"
 # Call program and forward all command line arguments
 $PYTHON  $WORKING_DIR/clok.py "$@"
 

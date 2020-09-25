@@ -9,8 +9,8 @@ from typer import Argument, Option
 
 from core.database import BaseModel, DB
 from core.defines import APPLICATION_DIRECTORY, DATABASE_FILE, SECONDS_PER_HOUR
-from core.models import Clok, Journal, clock_row_header
-from core.utils import get_date_key, get_month, get_week, to_json
+from core.models import Clok, Journal, clock_row_header, Job, State
+from core.utils import get_date_key, get_month, get_week, to_json, get_date
 from typing import Union
 
 app = typer.Typer()
@@ -42,7 +42,13 @@ def init():
     if not os.path.exists(APPLICATION_DIRECTORY):
         os.mkdir(APPLICATION_DIRECTORY)
     if not os.path.exists(DATABASE_FILE):
+        print(f"Creating TimeClok Database and default job.....")
         DB.create_tables(BaseModel)
+        j = Job(name="default")
+        j.save()
+        s = State()
+        s.save()
+        s.set_job(j)
 
 
 @app.command()
@@ -61,33 +67,31 @@ def dump(file_path: str = Argument(None)):
 def in_(
     when: datetime = Option(None, help="Set a specific time to clock in"),
     out: datetime = Option(None, help="Set time to clock out"),
-    first: bool = Option(False, help="Clock in five minutes in the past"),
     m: str = Option(None, help="Journal Message to add to record"),
 ):
     if when is not None and out is not None:
         print(f"Creating entry for {when:%Y-%m-%d}: {when:%H:%M:%S} to {out:%H:%M:%S}")
-        a = Clok(
+        c = Clok(
             time_in=when,
             time_out=out,
             date_key=get_date_key(when),
             month_key=get_month(when),
             week_key=get_week(when),
         )
-        a.update_span()
-        a.save()
+        c.update_span()
+        c.save()
         if m is not None:
-            a.add_journal(m)
+            c.add_journal(m)
     elif when is not None and out is None:
         Clok.clock_in_when(when, verbose=True)
         if m is not None:
             Clok.get_last_record().add_journal(m)
+        State.set_clok(Clok.get_last_record())
     else:
-        if first:
-            Clok.first_clock_in(5, verbose=True)
-        else:
-            Clok.clock_in(verbose=True)
+        Clok.clock_in(verbose=True)
         if m is not None:
             Clok.get_last_record().add_journal(m)
+        State.set_clok(Clok.get_last_record())
 
 
 @app.command()
@@ -132,17 +136,58 @@ def journal(
 
 
 @app.command()
-def status(
+def show(
     period: str = Argument("week", help="the period to print a summary for"),
     key: int = KEY,
+    journal: bool = Option(False, help="Print the journal entries as well"),
 ):
     records = get_records_for_period(period, key)
     total_hours = sum([i.time_span for i in records]) / SECONDS_PER_HOUR
 
     print(clock_row_header())
     for i in records:
-        print(i)
+        s, hours = i.print(journal)
+        if hours:
+            total_hours += hours
+        print(s)
     print(f"Total Hours Worked: {round(total_hours,3)}")
+
+
+@app.command()
+def jobs(
+    show: bool = Option(False, help="display records for day/week/month/date_key"),
+    add: str = Option(None, help="Add a new job, job names are stored lowercase only"),
+    switch: str = Option(None, help="Switch to a different job and clock out current"),
+):
+    if show:
+        print(Job.print_header())
+        current_job = State.get().job
+        for j in Job.query().all():
+            if j.id == current_job.id:
+                print(f"{j} <- Current")
+            else:
+                print(j)
+    elif add is not None:
+        try:
+            j = Job.query().filter(Job.name == add).one()
+            print(f"Job '{add.lower()}' already exists.")
+        except NoResultFound:
+            print(f"Creating job '{add.lower()}'")
+            j = Job(name=add)
+            j.save()
+    elif switch is not None:
+        try:
+            s = State.get()
+            c = Clok.get_last_record()
+            if c is not None:
+                if c.time_out is None:
+                    print(f"Clocking you out of '{s.job.name}' at {get_date()}")
+                    Clok.clock_out()
+            print(f"Switching to job '{switch.lower()}'")
+            j = Job.query().filter(Job.name == switch.lower()).one()
+            State.set_job(j)
+        except NoResultFound:
+            print(f"Job '{switch}' not found")
 
 
 @app.command()
@@ -166,6 +211,7 @@ def clear(period: int = Argument(None, help="the period to clear")):
 @app.command()
 def delete(id_=Argument(None, help="The id of the time_clock record to delete")):
     if id_ is not None:
+        typer.confirm(f"Are you sure that you want to delete this record? ({id_})?")
         try:
             Clok.delete_by_id(id_)
         except NoResultFound:

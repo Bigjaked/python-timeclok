@@ -2,10 +2,10 @@
 schema. These basically allow us to more easily query and insert into our database
 without having to play with sql directly unless we want to. """
 
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Union
 
-from sqlalchemy import Column, DateTime, Integer, TEXT, UniqueConstraint, desc
+from sqlalchemy import Column, DateTime, Integer, TEXT, UniqueConstraint, desc, String
 from sqlalchemy.orm import relationship
 
 from core.database import Model, SurrogatePK, Tracked, reference_col
@@ -39,17 +39,68 @@ class SpanQuery:
         return [i.to_dict for i in cls.query().all()]
 
 
+class State(Model, SurrogatePK):
+    __tablename__ = "time_clok_state"
+    job_id = reference_col("time_clok_jobs", default=None, nullable=True)
+    # save the current clok in to state
+    clok_id = reference_col("time_clok", default=None, nullable=True)
+
+    clok = relationship("Clok")
+    job = relationship("Job")
+
+    @classmethod
+    def get(cls):
+        return cls.query().one()
+
+    @classmethod
+    def set_clok(cls, clok: "Clok"):
+        s = cls.get()
+        s.clok = clok
+        s.save()
+
+    @classmethod
+    def set_job(cls, job: "Job"):
+        s = cls.get()
+        s.job = job
+        s.save()
+
+    @classmethod
+    def clear_clok(cls):
+        s = cls.get()
+        s.clok_id = None
+        s.save(0)
+
+
+class Job(Model, SurrogatePK):
+    __tablename__ = "time_clok_jobs"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String(64), unique=True)
+
+    def __init__(self, name: str):
+        self.name = name.lower()
+
+    @staticmethod
+    def print_header():
+        return f"{'ID':<6} {'Job Name':}"
+
+    def __repr__(self):
+        return f"{self.id:<6} {self.name:}"
+
+
 class Clok(Model, SurrogatePK, SpanQuery):
     __tablename__ = "time_clok"
     __table_args__ = (UniqueConstraint("time_in", "time_out", name="natural"),)
     id = Column(Integer, primary_key=True, autoincrement=True)
+    job_id = reference_col("time_clok_jobs")
     date_key = Column(Integer, default=get_date_key)
     week_key = Column(Integer, default=get_week)
     month_key = Column(Integer, default=get_month)
     time_in = Column(DateTime, default=datetime.now)
     time_out = Column(DateTime, default=None)
     time_span = Column(Integer, default=0)
-    journal_entries = relationship("time_clok_journal.clok_id")
+
+    journal_entries = relationship("Journal")
+    job = relationship("Job")
 
     def __init__(
         self,
@@ -67,6 +118,7 @@ class Clok(Model, SurrogatePK, SpanQuery):
         self.time_out = time_out
         if journal_msg is not None:
             self.add_journal(journal_msg)
+        self.job_id = State.get().job.id
 
     @property
     def to_dict(self):
@@ -87,19 +139,17 @@ class Clok(Model, SurrogatePK, SpanQuery):
 
     @property
     def span(self):
-        return round(self.time_span / SECONDS_PER_HOUR, 3)
+        return round(self.time_span / SECONDS_PER_HOUR, 2)
 
     @classmethod
     def get_last_record(cls):
-        return cls.query().order_by(desc(cls.time_in)).first()
-
-    @classmethod
-    def first_clock_in(cls, minus: int, verbose=False):
-        now = datetime.now() - timedelta(minutes=minus)
-        if verbose:
-            print(f"Clocking you in at {now:%Y-%m-%d %H:%M:%S}")
-        a = cls(time_in=now)
-        a.save()
+        s = State.get()
+        if s.clok is None:
+            return (
+                cls.query().filter(cls.job == s.job).order_by(desc(cls.time_in)).first()
+            )
+        else:
+            return s.clok
 
     @classmethod
     def clock_in(cls, verbose=False):
@@ -147,28 +197,41 @@ class Clok(Model, SurrogatePK, SpanQuery):
         return sum([i.time_span for i in records])
 
     def __repr__(self):
+        span = 0
         if self.time_out is None:
-            time_out = "None"
+            to = datetime.now()
+            span = round((to - self.time_in).total_seconds() / SECONDS_PER_HOUR, 2)
+            time_out = f"(current {to:%H:%M:%S})"
         else:
+
             time_out = self.time_out.strftime("%Y-%m-%d %H:%M:%S")
 
-        clok_info = _clock_format_row(
+        return _clock_format_row(
             self.id,
+            self.job.name,
             self.date_key,
             self.month_key,
             self.week_key,
             self.time_in.strftime("%Y-%m-%d %H:%M:%S"),
             time_out,
-            self.span,
+            self.span + span,
         )
-        journals = [i for i in self.journal_entries]
-        if journals:
-            j_info = "\n".join([str(i) for i in journals])
-            clok_info += f"\n{j_info}"
-        return clok_info
 
     def __str__(self):
         return self.__repr__()
+
+    def print(self, journal=False):
+        h = 0
+        clok_info = self.__repr__()
+        if self.time_out is None:
+            to = datetime.now()
+            h = (to - self.time_in).total_seconds() / SECONDS_PER_HOUR
+        if journal:
+            journals = [i for i in self.journal_entries]
+            if journals:
+                j_info = "|".join([str(i) for i in journals])
+                clok_info += f"{j_info}"
+        return clok_info, h
 
     def add_journal(self, msg: str):
         j = Journal(clock=self, entry=msg)
@@ -213,13 +276,17 @@ def _journal_format_row(journal_id, journal_entry) -> str:
 
 def clock_row_header():
     return _clock_format_row(
-        "ID", "Date Key", "Month", "Week", "Clock In", "Clock Out", "Hours "
+        "ID", "Job", "Date Key", "Month", "Week", "Clock In", "Clock Out", "Hours "
     )
 
 
-def _clock_format_row(clok_id, date, month, week, time_in, time_out, time_span) -> str:
+def _clock_format_row(
+    clok_id, job, date, month, week, time_in, time_out, time_span
+) -> str:
+
     return (
         f"{clok_id:<6} "
+        f"{job:<16} "
         f"{date:<10} "
         f"{month:<6} "
         f"{week:<6} "

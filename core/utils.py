@@ -225,3 +225,7 @@ def get_month(date: datetime = None) -> int:
     if date is None:
         date = datetime.now()
     return date.month
+
+
+def get_date():
+    return f"{datetime.now():%Y-%m-%d %H:%M:%S}"
