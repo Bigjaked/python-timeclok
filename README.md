@@ -32,6 +32,9 @@ ln ~/Projects/timeclok/clok.sh clok.sh
 alias clok="./clok.sh"
 ```
 
+### Plans
+* change formatting of output to display the minimum, and add options to display more
+
 This program creates a sqlite database at ~/.timeclok/time-clok.db which it stores
 everything in. Currently this project only supports linux/mac, but changing it to support 
 windows would be pretty simple, just change the variables in core/defines to directories

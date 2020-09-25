@@ -227,18 +227,18 @@ class Clok(Model, SurrogatePK, SpanQuery):
         if self.time_out is None:
             to = datetime.now()
             span = round((to - self.time_in).total_seconds() / SECONDS_PER_HOUR, 2)
-            time_out = f"(current {to:%H:%M:%S})"
+            time_out = f"(~{to:%H:%M:%S})"
         else:
 
-            time_out = self.time_out.strftime("%Y-%m-%d %H:%M:%S")
+            time_out = self.time_out.strftime("%H:%M:%S")
 
         return _clock_format_row(
             self.id,
             self.job.name,
-            self.date_key,
+            self.time_in.strftime("%Y-%m-%d"),
             self.month_key,
             self.week_key,
-            self.time_in.strftime("%Y-%m-%d %H:%M:%S"),
+            self.time_in.strftime("%H:%M:%S"),
             time_out,
             self.span + span,
         )
@@ -312,11 +312,11 @@ def _clock_format_row(
 
     return (
         f"{clok_id:<6} "
-        f"{job:<16} "
-        f"{date:<10} "
+        f"{job:<10} "
         f"{month:<6} "
         f"{week:<6} "
-        f"{time_in:<20} "
-        f"{time_out:<20} "
+        f"{date:<11} "
+        f"{time_in:<12} "
+        f"{time_out:<12} "
         f"{time_span:<6}"
     )
