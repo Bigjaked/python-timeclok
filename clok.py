@@ -99,10 +99,17 @@ def out(
     when: datetime = Option(None, help="Set a specific time to clock in"),
     m: str = Option(None, help="Journal Message to add to record"),
 ):
+    last = Clok.get_last_record()
+
     if when is not None:
         c = Clok.clock_out_when(when, verbose=True)
         if m is not None:
             c.add_journal(m)
+    elif (datetime.now() - last.time_in).total_seconds() / (60 * 60) > 12:
+        typer.confirm(
+            "The last clocked in time is more than 12 hours ago, are you\n"
+            "are you sure you want to clok out now?"
+        )
     else:
         Clok.clock_out(verbose=True)
     if m is not None:
@@ -155,10 +162,12 @@ def show(
 
 @app.command()
 def jobs(
-    show: bool = Option(False, help="display records for day/week/month/date_key"),
+    show: bool = Option(True, help="display records for day/week/month/date_key"),
     add: str = Option(None, help="Add a new job, job names are stored lowercase only"),
     switch: str = Option(None, help="Switch to a different job and clock out current"),
 ):
+    if add or switch:
+        show = False
     if show:
         print(Job.print_header())
         current_job = State.get().job
