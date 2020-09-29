@@ -192,6 +192,7 @@ class Clok(Model, SurrogatePK, SpanQuery):
             week_key=get_week(when),
         )
         c.save()
+        State.set_clok(c)
         return c
 
     @classmethod
