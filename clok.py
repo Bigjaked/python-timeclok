@@ -148,6 +148,12 @@ def show(
     key: int = KEY,
     journal: bool = Option(False, help="Print the journal entries as well"),
 ):
+    if period.startswith("d"):
+        period = "day"
+    elif period.startswith("w"):
+        period = "week"
+    elif period.startswith("m"):
+        period = "month"
     records = get_records_for_period(period, key)
     total_hours = sum([i.time_span for i in records]) / SECONDS_PER_HOUR
 

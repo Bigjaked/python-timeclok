@@ -38,9 +38,8 @@ class SpanQuery:
             i
             for i in (
                 cls.query()
-                .filter(
-                    cls.month_key == int(key).filter(cls.job_id == State.get().job.id)
-                )
+                .filter(cls.month_key == int(key))
+                .filter(cls.job_id == State.get().job.id)
                 .all()
             )
         ]
