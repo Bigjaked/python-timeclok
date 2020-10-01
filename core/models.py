@@ -118,7 +118,8 @@ class Job(Model, SurrogatePK):
     name = Column(String(64), unique=True)
 
     def __init__(self, name: str, id: int = None):
-        self.id = id
+        if id is not None:
+            self.id = id
         self.name = name.lower()
 
     @staticmethod
@@ -212,6 +213,10 @@ class Clok(Model, SurrogatePK, SpanQuery):
             )
         else:
             return s.clok
+
+    @classmethod
+    def get_most_recent_record(cls):
+        return cls.query().order_by(desc(cls.id)).first()
 
     @classmethod
     def clock_in(cls, verbose=False):

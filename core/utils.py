@@ -1,40 +1,26 @@
 """ This file contains our SqlAlchemy connection generator function which generates
-session factories for our databases. It also has a few utility functions that get uses
+session factories for our databases. It also has a few utility functions that get used
 throughout the application. """
 from datetime import datetime
+from multiprocessing import Lock
 from typing import Union
+
 from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import QueuePool
-from collections.abc import Hashable
-import functools
-from multiprocessing import Lock
 
-# from sqlalchemy.ext.compiler import compiles
-# from sqlalchemy.sql.expression import Insert
-# @compiles(Insert)
-# def _prefix_insert_with_ignore(insert, compiler, **kw):
-#     return compiler.visit_insert(insert.prefix_with("IGNORE"))
-
-
-def to_json(data):
-    if isinstance(data, (str, int, float, list, tuple, bool)):
-        return data
-    elif isinstance(data, datetime):
-        # return data.strftime("%Y/%m/%d %H:%M")
-        return data.timestamp()
-
-    return data
+from core.defines import DATE_FORMAT, DATE_TIME_FORMATS
 
 
 class SqlAlchemyConnGenerator:
-    _lock: Lock
     """
     Stores configuration information for sql database connection and implements helper
     methods for the generation of a session maker, sessions and engines.
     Defaults to using the SingletonThreadPool for use in multi-threaded applications.
     """
+
+    _lock: Lock
 
     def __init__(
         self,
@@ -96,10 +82,10 @@ class SqlAlchemyConnGenerator:
     @property
     def db_uri(self):
         if self._sqlite_db:
-            if isinstance(self._sqlite_db, bool):
-                return "sqlite://"
-            else:
+            if isinstance(self._sqlite_db, str):
                 return f"sqlite:///{self._sqlite_db}"
+            else:
+                return "sqlite://"
         else:
             return self._uri_string.format(
                 self._database_type,
@@ -173,35 +159,14 @@ class SqlAlchemyConnGenerator:
         return session_wrapper
 
 
-class Memoized(object):
-    """Decorator. Caches a function's return value each time it is called.
-   If called later with the same arguments, the cached value is returned
-   (not reevaluated).
-   """
+def to_json(data):
+    if isinstance(data, (str, int, float, list, tuple, bool)):
+        return data
+    elif isinstance(data, datetime):
+        # return data.strftime("%Y/%m/%d %H:%M")
+        return data.timestamp()
 
-    def __init__(self, func):
-        self.func = func
-        self.cache = {}
-
-    def __call__(self, *args):
-        if not isinstance(args, Hashable):
-            # un-cacheable. a list, for instance.
-            # better to not cache than blow up.
-            return self.func(*args)
-        if args in self.cache:
-            return self.cache[args]
-        else:
-            value = self.func(*args)
-            self.cache[args] = value
-            return value
-
-    def __repr__(self):
-        """Return the function's docstring."""
-        return self.func.__doc__
-
-    def __get__(self, obj, objtype):
-        """Support instance methods."""
-        return functools.partial(self.__call__, obj)
+    return data
 
 
 def get_date_key(key: Union[datetime, int, str] = None) -> int:
@@ -242,3 +207,30 @@ def parse_date(date: Union[str, int, float, datetime]):
         return date
     else:
         raise ValueError(f"This format is not supported: ({date}) type({type(date)})")
+
+
+def parse_date_time_junction(junction: str) -> (datetime, datetime):
+    date_str, time_junc = junction.split(" ")
+    date = datetime.strptime(date_str, DATE_FORMAT)
+    time_str1, time_str2 = time_junc.split("-")
+    print(time_str1, time_str2)
+    return parse_date_and_time(time_str1, date), parse_date_and_time(time_str2, date)
+
+
+def parse_date_and_time(time: str, date: datetime = None):
+    if date is not None:
+        date_str = date.strftime(DATE_FORMAT)
+    else:
+        date_str = datetime.now().strftime(DATE_FORMAT)
+
+    if len(time) <= 11:
+        date_time_str = f"{date_str} {time.upper()}"
+    else:
+        date_time_str = time
+    for fmt in DATE_TIME_FORMATS:
+        try:
+            return datetime.strptime(date_time_str, fmt)
+        except ValueError:
+            pass
+
+    raise ValueError(f"Could not parse time string {time}")

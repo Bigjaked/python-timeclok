@@ -4,20 +4,26 @@ from datetime import datetime
 from typing import Union
 
 import typer
-from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm.exc import NoResultFound
 from typer import Argument, Option
 
 from core.database import BaseModel, DB, add_items_to_database
 from core.defines import (
     APPLICATION_DIRECTORY,
     DATABASE_FILE,
-    DATE_FORMAT,
-    DATE_TIME_FORMATS,
     SECONDS_PER_HOUR,
 )
 from core.models import Clok, Job, Journal, State, clock_row_header
-from core.utils import get_date, get_date_key, get_month, get_week, to_json
+from core.utils import (
+    get_date,
+    get_date_key,
+    get_month,
+    get_week,
+    parse_date_and_time,
+    parse_date_time_junction,
+    to_json,
+)
 
 
 app = typer.Typer()
@@ -32,29 +38,6 @@ KEY = Option(
 WEEK = Option(False, help="Shortcut to set the period to week")
 MONTH = Option(False, help="Shortcut to set the period to month")
 ALL_JOBS = Option(False, help="Display records for all jobs")
-
-
-def parse_date_time_junction(junction: str) -> (datetime, datetime):
-    date_str, time_junc = junction.split(" ")
-    date = datetime.strptime(date_str, DATE_FORMAT)
-    time_str1, time_str2 = time_junc.split("-")
-    return parse_date_and_time(time_str1, date), parse_date_and_time(time_str2, date)
-
-
-def parse_date_and_time(time: str, date: datetime = None):
-    if date is not None:
-        date_str = date.strftime(DATE_FORMAT)
-    else:
-        date_str = datetime.now().strftime(DATE_FORMAT)
-
-    if len(time) <= 11:
-        date_time_str = f"{date_str} {time.upper()}"
-        for fmt in DATE_TIME_FORMATS:
-            try:
-                return datetime.strptime(date_time_str, fmt)
-            except ValueError:
-                pass
-    raise ValueError(f"Could not parse time string {time}")
 
 
 def get_records_for_period(
@@ -73,18 +56,21 @@ def get_records_for_period(
 
 
 @app.command()
-def init():
+def init(testing=False):
     """Initialize the database with the default job"""
     if not os.path.exists(APPLICATION_DIRECTORY):
         os.mkdir(APPLICATION_DIRECTORY)
-    if not os.path.exists(DATABASE_FILE):
+    if not os.path.exists(DATABASE_FILE) or testing:
         print(f"Creating TimeClok Database and default job.....")
         DB.create_tables(BaseModel)
-        j = Job(name="default")
-        j.save()
-        s = State()
-        s.save()
-        s.set_job(j)
+        try:
+            j = Job(name="default")
+            j.save()
+            s = State()
+            s.save()
+            s.set_job(j)
+        except IntegrityError:
+            DB.session.rollback()
 
 
 @app.command(name="import")
@@ -153,7 +139,7 @@ def in_(
     m: str = Option(None, help="Journal Message to add to record"),
 ):
     """Clock into a job, or add a job day"""
-    if when is not None and "-" in when:
+    if when is not None and len(when.split("-")) > 3:
         when, out = parse_date_time_junction(when)
     else:
         if out is not None:
@@ -188,7 +174,7 @@ def in_(
 
 @app.command()
 def out(
-    when: datetime = Option(None, help="Set a specific time to clock in"),
+    when: str = Option(None, help="Set a specific time to clock in"),
     m: str = Option(None, help="Journal Message to add to record"),
 ):
     """Clock out from a job"""
@@ -247,7 +233,8 @@ def journal(
         records = get_records_for_period(period, key, all_jobs=all_jobs)
         print(f"Printing Journal entries for {key or period.lower()}")
         for i in records:
-            print(i)
+            for journal in i.journal_entries:
+                print(journal)
     if delete is not None:
         print(Journal.get_by_id(id))
         typer.confirm(f"Are you sure that you want to delete this record? ({id})?")

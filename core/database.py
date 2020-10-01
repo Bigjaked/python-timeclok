@@ -87,6 +87,7 @@ class Model(CRUDMixin, BaseModel):
     def db(cls):
         return cls._db_instance.locked_session
 
+    @classmethod
     def count(self):
         return self.query().count()
 
