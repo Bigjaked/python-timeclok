@@ -32,9 +32,6 @@ ln ~/Projects/timeclok/clok.sh clok.sh
 alias clok="./clok.sh"
 ```
 
-### Plans
-* change formatting of output to display the minimum, and add options to display more
-
 This program creates a sqlite database at ~/.timeclok/time-clok.db which it stores
 everything in. Currently this project only supports linux/mac, but changing it to support 
 windows would be pretty simple, just change the variables in core/defines to directories
@@ -50,7 +47,7 @@ and calling *python clok.py* explicitly from within a pipenv shell instance.
 ```shell script
 # If you don't want to you don't even need to create a job. 
 # the 'default' job is created the first time you run the program.
-clok jobs --show
+clok jobs 
 # ID     Job Name
 # 1      default  <- Current
 ## thats great, it shows us that we have one job, and its the job were using now.
@@ -58,7 +55,7 @@ clok jobs --show
 # add a new job, (it won't let you add a job that already exists)
 # Note: also, all job names are stored lowercase only, less confusion that way.
 clok jobs --add work
-clok jobs --show
+clok jobs
 # ID     Job Name
 # 1      default  <- Current
 # 2      work  
@@ -70,6 +67,11 @@ clok jobs --show
 # ID     Job Name
 # 1      default
 # 2      work  <- Current
+
+# There is a new way to do this that is slightly easier
+# To switch jobs just type
+clok switch default
+
 
 # Thats it for jobs.
 ```
@@ -90,6 +92,26 @@ python clok.py in --when "2020-09-22 08:00:00"
 # doing the same and recording a message about it
 python clok.py in --m "a message that can contain \n (any special chars)"
 python clok.py in --when "2020-09-22 08:00:00" --m "message"
+
+# Advanced
+# I have added some advanced date parsing utilities that allow for less typing
+# all of the following are valid time formats
+# 01:00:00 - this is 1:00 in 24 hour time
+# 1:00:00 - this is 1:00 in 24 hour time
+# 01:00 - this is 1:00 in 24 hour time
+# 1:00 - this is 1:00 in 24 hour time
+# 01:00:00pm - this is 13:00 in 24 hour time
+# 1:00:00pm - this is 13:00 in 24 hour time
+# 01:00pm - this is 13:00 in 24 hour time
+# 1:00pm - this is 13:00 in 24 hour time
+
+# All of the new time formats are accepted everywhere in the application that accepts
+# a time string for input
+# the api can still be used as it was previously
+clok in --when "2020-09-22 1:00" --out "2020-09-22 2:00"
+# but we can also do this to do the same thing with less typing
+clok in --when "2020-09-22 1:00-2:00"
+
 ```
 
 #### Clocking Out
@@ -109,13 +131,19 @@ python clok.py out --when "2020-09-22 08:00:00" --m "message"
 #### Adding Past Days
 ```shell script
 # clock in at a certain time
-python clok.py in --when "2020-09-20 08:00:00" --out "2020-09-20 08:00:00"
+python clok.py in --when "2020-09-20 08:00:00" --out "2020-09-20 17:00:00"
+# or
+python clok.py in --when "2020-09-20 08:00:00-17:00:00"
 
 # adding a past day with a message entry
-python clok.py in --when "2020-09-20 08:00:00" --out "2020-09-20 08:00:00" --m "message"
+python clok.py in --when "2020-09-20 08:00:00" --out "2020-09-20 17:00:00" --m "message"
+# or
+python clok.py in --when "2020-09-20 08:00:00-17:00:00" --m "message"
 ```
 
 #### Showing status
+These status messages will show up slightly different in your console. The newer versions
+provide a more minimal output
 ```shell script
 # Display current days status
 python clok.py show
@@ -162,6 +190,14 @@ python clok.py dump
 python clok.py dump dump-file.json
 ```
 
+#### Import from a json file
+The following command will import the entire application from a json file.
+Duplicate entires will be ignored.
+```shell script
+
+# Import from a specified file
+python clok.py import dump-file.json
+```
 # Joint functionality
 The Following commands work for both the journal and the clock.
 
