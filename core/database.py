@@ -7,6 +7,8 @@ from typing import Union
 from sqlalchemy import Column, DateTime, ForeignKey, Integer, JSON
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import Query
+from sqlalchemy.orm.exc import NoResultFound
+from sqlalchemy.exc import IntegrityError
 
 from core.utils import SqlAlchemyConnGenerator
 from core.defines import DATABASE_FILE
@@ -16,6 +18,19 @@ from core.defines import DATABASE_FILE
 DB = SqlAlchemyConnGenerator(sqlite_db=DATABASE_FILE)
 
 BaseModel = declarative_base()
+
+
+def add_items_to_database(items):
+    for item in items:
+        _add_item(item)
+
+
+def _add_item(item):
+    try:
+        DB.session.add(item)
+        DB.session.commit()
+    except IntegrityError:
+        DB.session.rollback()
 
 
 class CRUDMixin(object):
@@ -140,7 +155,10 @@ class SurrogatePK(object):
                 isinstance(record_id, (int, float)),
             )
         ):
-            return cls.query().filter(cls.id == int(record_id))
+            try:
+                return cls.query().filter(cls.id == int(record_id)).one()
+            except NoResultFound:
+                pass
         return None
 
     @classmethod

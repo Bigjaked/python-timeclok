@@ -10,53 +10,62 @@ from sqlalchemy.orm import relationship
 
 from core.database import Model, SurrogatePK, Tracked, reference_col
 from core.defines import SECONDS_PER_HOUR
-from core.utils import get_date_key, get_month, get_week
+from core.utils import get_date_key, get_month, get_week, parse_date
 
 
 class SpanQuery:
     @classmethod
-    def get_by_date_key(cls, key: Union[datetime, int, str] = None):
+    def get_by_date_key(cls, key: Union[datetime, int, str] = None, all_jobs=False):
         if key is None:
             dk = get_date_key()
         else:
             dk = get_date_key(key)
-        return [
-            i
-            for i in (
-                cls.query()
-                .filter(cls.date_key == dk)
-                .filter(cls.job_id == State.get().job.id)
-                .all()
-            )
-        ]
+        if all_jobs:
+            return [i for i in (cls.query().filter(cls.date_key == dk).all())]
+        else:
+            return [
+                i
+                for i in (
+                    cls.query()
+                    .filter(cls.date_key == dk)
+                    .filter(cls.job_id == State.get().job.id)
+                    .all()
+                )
+            ]
 
     @classmethod
-    def get_by_month_key(cls, key: Union[int, str] = None):
+    def get_by_month_key(cls, key: Union[int, str] = None, all_jobs=False):
         if key is None:
             key = get_month()
-        return [
-            i
-            for i in (
-                cls.query()
-                .filter(cls.month_key == int(key))
-                .filter(cls.job_id == State.get().job.id)
-                .all()
-            )
-        ]
+        if all_jobs:
+            return [i for i in (cls.query().filter(cls.month_key == int(key)).all())]
+        else:
+            return [
+                i
+                for i in (
+                    cls.query()
+                    .filter(cls.month_key == int(key))
+                    .filter(cls.job_id == State.get().job.id)
+                    .all()
+                )
+            ]
 
     @classmethod
-    def get_by_week_key(cls, key: Union[int, str] = None):
+    def get_by_week_key(cls, key: Union[int, str] = None, all_jobs=False):
         if key is None:
             key = get_week()
-        return [
-            i
-            for i in (
-                cls.query()
-                .filter(cls.week_key == int(key))
-                .filter(cls.job_id == State.get().job.id)
-                .all()
-            )
-        ]
+        if all_jobs:
+            return [i for i in (cls.query().filter(cls.week_key == int(key)).all())]
+        else:
+            return [
+                i
+                for i in (
+                    cls.query()
+                    .filter(cls.week_key == int(key))
+                    .filter(cls.job_id == State.get().job.id)
+                    .all()
+                )
+            ]
 
     @classmethod
     def dump(cls):
@@ -94,13 +103,22 @@ class State(Model, SurrogatePK):
         s.clok_id = None
         s.save(0)
 
+    @property
+    def to_dict(self):
+        return dict(job_id=self.job_id, clok_id=self.clok_id, id=self.id)
+
+    @classmethod
+    def dump(cls):
+        return [i.to_dict for i in cls.query().all()]
+
 
 class Job(Model, SurrogatePK):
     __tablename__ = "time_clok_jobs"
     id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String(64), unique=True)
 
-    def __init__(self, name: str):
+    def __init__(self, name: str, id: int = None):
+        self.id = id
         self.name = name.lower()
 
     @staticmethod
@@ -109,6 +127,14 @@ class Job(Model, SurrogatePK):
 
     def __repr__(self):
         return f"{self.id:<6} {self.name:}"
+
+    @property
+    def to_dict(self):
+        return dict(id=self.id, name=self.name)
+
+    @classmethod
+    def dump(cls):
+        return [i.to_dict for i in cls.query().all()]
 
 
 class Clok(Model, SurrogatePK, SpanQuery):
@@ -128,26 +154,37 @@ class Clok(Model, SurrogatePK, SpanQuery):
 
     def __init__(
         self,
+        id: int = None,
+        job_id: int = None,
         date_key: int = None,
         week_key: int = None,
         month_key: int = None,
         time_in: datetime = None,
         time_out: datetime = None,
+        time_span: int = None,
         journal_msg: str = None,
+        **kwargs,
     ):
+        self.id = id
         self.date_key = date_key
         self.week_key = week_key
         self.month_key = month_key
-        self.time_in = time_in
-        self.time_out = time_out
+        self.time_in = parse_date(time_in)
+        self.time_out = parse_date(time_out)
+        if time_span is not None:
+            self.time_span = time_span
         if journal_msg is not None:
             self.add_journal(journal_msg)
-        self.job_id = State.get().job.id
+        if job_id is not None:
+            self.job_id = job_id
+        else:
+            self.job_id = State.get().job.id
 
     @property
     def to_dict(self):
         return dict(
-            job=self.job.name,
+            id=self.id,
+            job_id=self.job_id,
             date_key=self.date_key,
             week_key=self.week_key,
             month_key=self.month_key,
@@ -208,17 +245,17 @@ class Clok(Model, SurrogatePK, SpanQuery):
         r.save()
 
     @classmethod
-    def get_day_hours(cls, key: int = None):
-        records = cls.get_by_date_key(key)
+    def get_day_hours(cls, key: int = None, all_jobs=False):
+        records = cls.get_by_date_key(key, all_jobs=all_jobs)
         return sum([i.time_span for i in records])
 
     @classmethod
-    def get_week_hours(cls, key: int = None):
+    def get_week_hours(cls, key: int = None, all_days=False):
         records = cls.get_by_week_key(key)
         return sum([i.time_span for i in records])
 
     @classmethod
-    def get_month_hours(cls, key: int = None):
+    def get_month_hours(cls, key: int = None, all_days=False):
         records = cls.get_by_month_key(key)
         return sum([i.time_span for i in records])
 
@@ -280,14 +317,26 @@ class Journal(Model, SurrogatePK, Tracked, SpanQuery):
     time = Column(DateTime, default=datetime.now)
     entry = Column(TEXT)
 
-    def __init__(self, clock: Clok, time: datetime = None, entry: str = None):
-        self.clok_id = clock.id
-        self.time = time
+    def __init__(
+        self,
+        clock: Clok = None,
+        clok_id: int = None,
+        time: datetime = None,
+        entry: str = None,
+        id: int = None,
+    ):
+        self.id = id
+        if clok_id is not None:
+            self.clok_id = clok_id
+        elif clock is not None:
+            self.clok_id = clock.id
+
+        self.time = parse_date(time)
         self.entry = entry
 
     @property
     def to_dict(self):
-        return dict(time=self.time, entry=self.entry)
+        return dict(time=self.time, entry=self.entry, id=self.id)
 
     def __repr__(self):
         return _journal_format_row(self.id, self.entry)

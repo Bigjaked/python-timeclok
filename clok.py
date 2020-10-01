@@ -1,17 +1,24 @@
 import json
 import os
 from datetime import datetime
+from typing import Union
 
 import typer
 from sqlalchemy.orm.exc import NoResultFound
+from sqlalchemy.exc import IntegrityError
 from typer import Argument, Option
 
+from core.database import BaseModel, DB, add_items_to_database
+from core.defines import (
+    APPLICATION_DIRECTORY,
+    DATABASE_FILE,
+    DATE_FORMAT,
+    DATE_TIME_FORMATS,
+    SECONDS_PER_HOUR,
+)
+from core.models import Clok, Job, Journal, State, clock_row_header
+from core.utils import get_date, get_date_key, get_month, get_week, to_json
 
-from core.database import BaseModel, DB
-from core.defines import APPLICATION_DIRECTORY, DATABASE_FILE, SECONDS_PER_HOUR
-from core.models import Clok, Journal, clock_row_header, Job, State
-from core.utils import get_date_key, get_month, get_week, to_json, get_date
-from typing import Union
 
 app = typer.Typer()
 
@@ -22,15 +29,43 @@ KEY = Option(
     "'20201010', week_key: '1-52', month_key: '1-12'. default is the current "
     "datekey.",
 )
+WEEK = Option(False, help="Shortcut to set the period to week")
+MONTH = Option(False, help="Shortcut to set the period to month")
+ALL_JOBS = Option(False, help="Display records for all jobs")
 
 
-def get_records_for_period(period: str, key: Union[str, int, datetime]) -> [Clok]:
+def parse_date_time_junction(junction: str) -> (datetime, datetime):
+    date_str, time_junc = junction.split(" ")
+    date = datetime.strptime(date_str, DATE_FORMAT)
+    time_str1, time_str2 = time_junc.split("-")
+    return parse_date_and_time(time_str1, date), parse_date_and_time(time_str2, date)
+
+
+def parse_date_and_time(time: str, date: datetime = None):
+    if date is not None:
+        date_str = date.strftime(DATE_FORMAT)
+    else:
+        date_str = datetime.now().strftime(DATE_FORMAT)
+
+    if len(time) <= 11:
+        date_time_str = f"{date_str} {time.upper()}"
+        for fmt in DATE_TIME_FORMATS:
+            try:
+                return datetime.strptime(date_time_str, fmt)
+            except ValueError:
+                pass
+    raise ValueError(f"Could not parse time string {time}")
+
+
+def get_records_for_period(
+    period: str, key: Union[str, int, datetime], all_jobs=False
+) -> [Clok]:
     if period.lower() == "day":
-        records = Clok.get_by_date_key(key)
+        records = Clok.get_by_date_key(key, all_jobs=all_jobs)
     elif period.lower() == "week":
-        records = Clok.get_by_week_key(key)
+        records = Clok.get_by_week_key(key, all_jobs=all_jobs)
     elif period.lower() == "month":
-        records = Clok.get_by_month_key(key)
+        records = Clok.get_by_month_key(key, all_jobs=all_jobs)
     else:
         print(f"Error: period must be one of (day, week, month) not {period}")
         raise ValueError()
@@ -39,6 +74,7 @@ def get_records_for_period(period: str, key: Union[str, int, datetime]) -> [Clok
 
 @app.command()
 def init():
+    """Initialize the database with the default job"""
     if not os.path.exists(APPLICATION_DIRECTORY):
         os.mkdir(APPLICATION_DIRECTORY)
     if not os.path.exists(DATABASE_FILE):
@@ -51,13 +87,60 @@ def init():
         s.set_job(j)
 
 
+@app.command(name="import")
+def import_(
+    file_path: str = Argument(
+        None,
+        help="the path of the file to import. Only json files are supported at this "
+        "time.",
+    )
+):
+    """Import an exported json file to the database."""
+    if os.path.isfile(file_path):
+        with open(file_path) as f:
+            dump_obj = json.loads(f.read())
+        time_clok_jobs = dump_obj["time_clok_jobs"]
+        time_clok = dump_obj["time_clok"]
+        time_clok_state = dump_obj["time_clok_state"]
+        time_clok_journal = dump_obj["time_clok_journal"]
+
+        jobs = []
+        for job in time_clok_jobs:
+            jobs.append(Job(**job))
+        add_items_to_database(jobs)
+
+        cloks = []
+        for clok in time_clok:
+            cloks.append(Clok(**clok))
+        add_items_to_database(cloks)
+
+        journals = []
+        for journal in time_clok_journal:
+            journals.append(Journal(**journal))
+        add_items_to_database(journals)
+        try:
+            s = State(**time_clok_state[0])
+            s.save()
+        except IntegrityError:
+            pass
+
+    else:
+        raise FileNotFoundError(f"'{file_path}' does not exist.")
+
+
 @app.command()
 def dump(file_path: str = Argument(None)):
+    """Export the database to a json file"""
     if file_path is None:
         date_str = datetime.now().strftime("%Y%m%d_%H%M%S")
         file_path = f"{APPLICATION_DIRECTORY}/time-clock-dump-{date_str}.json"
     print(f"Dumping the database to > {file_path}")
-    dump_dict = {"clok": Clok.dump()}
+    dump_dict = {
+        "time_clok_jobs": Job.dump(),
+        "time_clok_state": State.dump(),
+        "time_clok": Clok.dump(),
+        "time_clok_journal": Journal.dump(),
+    }
     s = json.dumps(dump_dict, default=to_json)
     with open(file_path, "w") as f:
         f.write(s)
@@ -65,10 +148,19 @@ def dump(file_path: str = Argument(None)):
 
 @app.command(name="in")
 def in_(
-    when: datetime = Option(None, help="Set a specific time to clock in"),
-    out: datetime = Option(None, help="Set time to clock out"),
+    when: str = Argument(None, help="Set a specific time to clock in"),
+    out: str = Option(None, help="Set time to clock out"),
     m: str = Option(None, help="Journal Message to add to record"),
 ):
+    """Clock into a job, or add a job day"""
+    if when is not None and "-" in when:
+        when, out = parse_date_time_junction(when)
+    else:
+        if out is not None:
+            out = parse_date_and_time(out)
+        if when is not None:
+            when = parse_date_and_time(when)
+
     if when is not None and out is not None:
         print(f"Creating entry for {when:%Y-%m-%d}: {when:%H:%M:%S} to {out:%H:%M:%S}")
         c = Clok(
@@ -99,7 +191,9 @@ def out(
     when: datetime = Option(None, help="Set a specific time to clock in"),
     m: str = Option(None, help="Journal Message to add to record"),
 ):
+    """Clock out from a job"""
     last = Clok.get_last_record()
+    when = parse_date_and_time(when)
 
     if when is not None:
         c = Clok.clock_out_when(when, verbose=True)
@@ -120,26 +214,44 @@ def out(
 def journal(
     msg: str = Argument(None, help="The journal message to record"),
     delete: int = Option(None, help="Delete a message by id"),
-    show: bool = Option(False, help="display records for day/week/month/date_key"),
+    show: bool = Option(True, help="display records for day/week/month/date_key"),
     period: str = Option(
         "day",
         help="The type of time period key to display messages. [day,week,"
         "month] can be combined with 'show' or 'key'.",
     ),
     key: str = KEY,
+    id: int = Option(None, help="Add a journal to a specific clok record"),
+    week: bool = WEEK,
+    month: bool = MONTH,
+    all_jobs: bool = ALL_JOBS,
 ):
+    """Show and manage journal entries"""
+    if delete is not None:
+        id = delete
     if msg is not None:
-        Clok.get_last_record().add_journal(msg)
+        if id is not None:
+            c = Clok.get_by_id(id)
+            if c is not None:
+                c.add_journal(msg)
+            else:
+                raise ValueError(f"Sorry I couldn't find that id :({id})")
+        else:
+            Clok.get_last_record().add_journal(msg)
+    if week:
+        period = "week"
+    elif month:
+        period = "month"
 
     if show:
-        records = get_records_for_period(period, key)
+        records = get_records_for_period(period, key, all_jobs=all_jobs)
         print(f"Printing Journal entries for {key or period.lower()}")
         for i in records:
             print(i)
     if delete is not None:
-        print(Journal.get_by_id(delete))
-        typer.confirm(f"Are you sure that you want to delete this record? ({delete})?")
-        Journal.delete_by_id(delete)
+        print(Journal.get_by_id(id))
+        typer.confirm(f"Are you sure that you want to delete this record? ({id})?")
+        Journal.delete_by_id(id)
 
 
 @app.command()
@@ -147,14 +259,23 @@ def show(
     period: str = Argument("week", help="the period to print a summary for"),
     key: int = KEY,
     journal: bool = Option(False, help="Print the journal entries as well"),
+    week: bool = WEEK,
+    month: bool = MONTH,
+    all_jobs: bool = ALL_JOBS,
 ):
+    """Display a period of clok ins, the default is the current week"""
+    if week:
+        period = "week"
+    elif month:
+        period = "month"
+
     if period.startswith("d"):
         period = "day"
     elif period.startswith("w"):
         period = "week"
     elif period.startswith("m"):
         period = "month"
-    records = get_records_for_period(period, key)
+    records = get_records_for_period(period, key, all_jobs=all_jobs)
     total_hours = sum([i.time_span for i in records]) / SECONDS_PER_HOUR
 
     print(clock_row_header())
@@ -172,6 +293,7 @@ def jobs(
     add: str = Option(None, help="Add a new job, job names are stored lowercase only"),
     switch: str = Option(None, help="Switch to a different job and clock out current"),
 ):
+    """Show and manage different jobs"""
     if add or switch:
         show = False
     if show:
@@ -206,26 +328,19 @@ def jobs(
 
 
 @app.command()
-def clear(period: int = Argument(None, help="the period to clear")):
-    p = get_date_key(period)
-    typer.confirm(
-        f"Are you sure that you want to delete the records for this day ({p})?"
-    )
-    if period is not None:
-        records = Clok.get_by_date_key(period)
-    else:
-        records = Clok.get_by_date_key()
-    print(f"Deleting {len(records)} records...")
-    print(clock_row_header())
-    for r in records:
-        print(r)
-        r.delete()
-    Clok.db().commit()
+def switch(job: str = Argument("default", help="The job to switch too.")):
+    """This is a shortcut to jobs --switch"""
+    jobs(show=False, add=None, switch=job)
 
 
 @app.command()
 def delete(id_=Argument(None, help="The id of the time_clock record to delete")):
+    """Delete a record by record ID."""
     if id_ is not None:
+        c = Clok.get_by_id(id_)
+        if c is not None:
+            print(clock_row_header())
+            print(c)
         typer.confirm(f"Are you sure that you want to delete this record? ({id_})?")
         try:
             Clok.delete_by_id(id_)

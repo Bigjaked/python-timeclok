@@ -229,3 +229,16 @@ def get_month(date: datetime = None) -> int:
 
 def get_date():
     return f"{datetime.now():%Y-%m-%d %H:%M:%S}"
+
+
+def parse_date(date: Union[str, int, float, datetime]):
+    if date is None:
+        return None
+    if isinstance(date, (float, int)):
+        return datetime.fromtimestamp(date)
+    elif isinstance(date, str):
+        return datetime.strptime(date, "%Y-%m-%d %H:%M:%S")
+    elif isinstance(date, datetime):
+        return date
+    else:
+        raise ValueError(f"This format is not supported: ({date}) type({type(date)})")
