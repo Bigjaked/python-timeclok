@@ -179,9 +179,8 @@ def out(
 ):
     """Clock out from a job"""
     last = Clok.get_last_record()
-    when = parse_date_and_time(when)
-
     if when is not None:
+        when = parse_date_and_time(when)
         c = Clok.clock_out_when(when, verbose=True)
         if m is not None:
             c.add_journal(m)
