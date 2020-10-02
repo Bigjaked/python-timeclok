@@ -9,11 +9,7 @@ from sqlalchemy.orm.exc import NoResultFound
 from typer import Argument, Option
 
 from core.database import BaseModel, DB, add_items_to_database
-from core.defines import (
-    APPLICATION_DIRECTORY,
-    DATABASE_FILE,
-    SECONDS_PER_HOUR,
-)
+from core.defines import APPLICATION_DIRECTORY, DATABASE_FILE, SECONDS_PER_HOUR
 from core.models import Clok, Job, Journal, State, clock_row_header
 from core.utils import (
     get_date,
@@ -326,7 +322,6 @@ def delete(id_=Argument(None, help="The id of the time_clock record to delete"))
         c = Clok.get_by_id(id_)
         if c is not None:
             print(clock_row_header())
-            print(c)
         typer.confirm(f"Are you sure that you want to delete this record? ({id_})?")
         try:
             Clok.delete_by_id(id_)

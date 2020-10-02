@@ -3,15 +3,13 @@ TimeClok
 
 This is a simple time clock app that I wrote to keep track of time for different jobs. It 
 allows the user to "clock in" and "clock out" just like all the different time clocks you 
-find in businesses all over the world. It has a pretty simple command line interface and
-includes a few journaling commands as well.
-I built this program because I needed the functionality that it has, and I also needed a 
-break from the project I was working on.
-The reason that it is named clok, is because cloc is taken, and clock could be as well.
+find in businesses all over the world. It includes a simple command line interface.
 
+I'm currently working on integrating it with google sheets so that you can use it from 
+different computers, but I may just build a simple web server as it would be much faster.
 
 ## Installation
-Download the repo to your system. Then Do the following. Installation currently requires
+Download the repo to your system and then Do the following. (Installation currently requires pipenv)
 ```shell script
 cd timeclok # Change directories into the timeclok dir
 
@@ -29,6 +27,8 @@ ln ~/Projects/timeclok/clok.sh clok.sh
 ./clok.sh --help
 
 # Enable calling the program by typing clok instead of ./clok.sh
+# add this to the end of your .bashrc file to make it last longet than the current
+# shell session.
 alias clok="./clok.sh"
 ```
 
