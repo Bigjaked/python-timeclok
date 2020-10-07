@@ -10,7 +10,7 @@ from sqlalchemy.orm import relationship
 
 from core.database import Model, SurrogatePK, Tracked, reference_col
 from core.defines import SECONDS_PER_HOUR
-from core.utils import get_date_key, get_month, get_week, parse_date
+from core.date_utils import get_date_key, get_month, get_week, parse_date
 
 
 class SpanQuery:
@@ -248,6 +248,17 @@ class Clok(Model, SurrogatePK, SpanQuery):
         r.time_out = when
         r.update_span()
         r.save()
+        return r
+
+    @classmethod
+    def clok_out_by_id(cls, id: Union[int, str], when: datetime, verbose=False):
+        if verbose:
+            print(f"Clocking you out at {when:%Y-%m-%d %H:%M:%S}")
+        c = cls.get_by_id(int(id))
+        c.time_out = when
+        c.update_span()
+        c.save()
+        return c
 
     @classmethod
     def get_day_hours(cls, key: int = None, all_jobs=False):

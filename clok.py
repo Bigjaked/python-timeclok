@@ -15,15 +15,15 @@ from core.defines import (
     SECONDS_PER_HOUR,
 )
 from core.models import Clok, Job, Journal, State, clock_row_header
-from core.utils import (
+from core.date_utils import (
     get_date,
     get_date_key,
     get_month,
     get_week,
     parse_date_and_time,
     parse_date_time_junction,
-    to_json,
 )
+from core.utils import to_json
 
 
 app = typer.Typer()
@@ -174,25 +174,31 @@ def in_(
 
 @app.command()
 def out(
-    when: str = Option(None, help="Set a specific time to clock in"),
+    when: str = Option(None, help="Set a specific time to clock out"),
+    id: str = Option(None, help="The id of the clok instance to clok out of."),
     m: str = Option(None, help="Journal Message to add to record"),
 ):
     """Clock out from a job"""
-    last = Clok.get_last_record()
-    if when is not None:
+    if when:
         when = parse_date_and_time(when)
-        c = Clok.clock_out_when(when, verbose=True)
-        if m is not None:
-            c.add_journal(m)
-    elif (datetime.now() - last.time_in).total_seconds() / (60 * 60) > 12:
-        typer.confirm(
-            "The last clocked in time is more than 12 hours ago, are you\n"
-            "are you sure you want to clok out now?"
-        )
+
+    if id is not None and when is not None:
+        clok = Clok.clok_out_by_id(id, when, verbose=True)
     else:
-        Clok.clock_out(verbose=True)
+        clok = Clok.get_last_record()
+        if (datetime.now() - clok.time_in).total_seconds() / (60 * 60) > 12:
+            typer.confirm(
+                "The last clocked in time is more than 12 hours ago, are you\n"
+                "are you sure you want to clok out now?"
+            )
+
+        if when is not None:
+
+            clok = Clok.clock_out_when(when, verbose=True)
+        else:
+            clok = Clok.clock_out(verbose=True)
     if m is not None:
-        Clok.get_last_record().add_journal(m)
+        clok.add_journal(m)
 
 
 @app.command()
