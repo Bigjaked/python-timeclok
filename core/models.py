@@ -367,7 +367,7 @@ def _journal_format_row(journal_id, journal_entry) -> str:
 
 def clock_row_header():
     return _clock_format_row(
-        "ID", "Job", "Date Key", "Month", "Week", "Clock In", "Clock Out", "Hours "
+        "ID", "Job", "Date", "Month", "Week", "Clock In", "Clock Out", "Hours "
     )
 
 
