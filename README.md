@@ -9,9 +9,11 @@ I'm currently working on integrating it with google sheets so that you can use i
 different computers, but I may just build a simple web server as it would be much faster.
 
 #TODO
-Add a summary feature that allows the user to query by a period and see a summary of 
-the information. Periods would include, day, week, month and year, and the summary would
-include the total number records, hours worked, and journal entries.
+* Add a summary feature that allows the user to query by a period and see a summary of 
+  the information. Periods would include, day, week, month and year, and the summary would
+  include the total number records, hours worked, and journal entries.
+* Update this readme to reflect the most current api.
+
 ## Installation
 Download the repo to your system and then Do the following. (Installation currently requires pipenv)
 ```shell script
