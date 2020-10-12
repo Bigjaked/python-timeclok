@@ -8,6 +8,10 @@ find in businesses all over the world. It includes a simple command line interfa
 I'm currently working on integrating it with google sheets so that you can use it from 
 different computers, but I may just build a simple web server as it would be much faster.
 
+#TODO
+Add a summary feature that allows the user to query by a period and see a summary of 
+the information. Periods would include, day, week, month and year, and the summary would
+include the total number records, hours worked, and journal entries.
 ## Installation
 Download the repo to your system and then Do the following. (Installation currently requires pipenv)
 ```shell script
