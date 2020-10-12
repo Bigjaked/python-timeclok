@@ -362,7 +362,44 @@ class Journal(Model, SurrogatePK, Tracked, SpanQuery):
 
 
 def _journal_format_row(journal_id, journal_entry) -> str:
-    return f"    - ID: {journal_id:<6} {journal_entry:<64}"  # 80 - ( 6 + 10)
+    journal_id_str = f" - ID: {journal_id:<4}"
+    if len(journal_entry) > 80:
+        indent = 6
+        max_len = 80 - indent  # default terminal size minus indent
+        rows = _break_string_into_chunks_by_space(journal_entry, max_len)
+        all_rows = [journal_id_str]
+        for r in rows:
+            all_rows.append(f"{' ' * indent}{r.strip()}")
+        return "\n".join(all_rows)
+
+
+def _break_string_into_chunks_by_space(s: str, chunk_len: int) -> [str]:
+    last_chunk_end = 0
+    chunks = []
+    while True:
+        working_str = s[last_chunk_end:]
+        if len(working_str) <= chunk_len:
+            chunks.append(working_str)
+            break
+        else:
+            pos = _seek_last_space(working_str, chunk_len)
+            chunks.append(working_str[:pos])
+            last_chunk_end += pos
+
+    return chunks
+
+
+def _seek_last_space(s: str, chars: int) -> int:
+    if s[chars] == " ":
+        return chars
+    else:
+        char = chars - 1
+        while True:
+            if s[char] == " ":
+                return char
+            char -= 1
+            if char < 5:
+                return 0
 
 
 def clock_row_header():

@@ -232,7 +232,7 @@ def journal(
 
     if show:
         records = get_records_for_period(period, key, all_jobs=all_jobs)
-        print(f"Printing Journal entries for {key or period.lower()}")
+        print(f"Printing Journal entries for the {key or period.lower()}.")
         for i in records:
             for journal in i.journal_entries:
                 print(journal)
