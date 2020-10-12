@@ -18,6 +18,7 @@ from core.date_utils import (
     get_week,
     parse_date_and_time,
     parse_date_time_junction,
+    format_hours,
 )
 from core.utils import to_json
 
@@ -272,7 +273,7 @@ def show(
         if hours:
             total_hours += hours
         print(s)
-    print(f"Total Hours Worked: {round(total_hours,3)}")
+    print(f"Total Hours Worked: {format_hours(total_hours)}")
 
 
 @app.command()

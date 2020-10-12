@@ -33,7 +33,7 @@ ln ~/Projects/timeclok/clok.sh clok.sh
 ./clok.sh --help
 
 # Enable calling the program by typing clok instead of ./clok.sh
-# add this to the end of your .bashrc file to make it last longet than the current
+# add this to the end of your .bashrc file to make it last longest than the current
 # shell session.
 alias clok="./clok.sh"
 ```

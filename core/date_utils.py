@@ -69,3 +69,10 @@ def parse_date_and_time(time: str, date: datetime = None) -> datetime:
             pass
 
     raise ValueError(f"Could not parse time string {time}")
+
+
+def format_hours(hours: float) -> str:
+    h = int(hours)
+    decimal = hours - h
+    m = int(60 * decimal)
+    return f"{h}H {m}M"
