@@ -190,7 +190,6 @@ def out(
             )
 
         if when is not None:
-
             clok = Clok.clock_out_when(when, verbose=True)
         else:
             clok = Clok.clock_out(verbose=True)
@@ -334,6 +333,13 @@ def delete(id_=Argument(None, help="The id of the time_clock record to delete"))
             Clok.delete_by_id(id_)
         except NoResultFound:
             print(f"Record ({id_}) does not exist")
+
+
+@app.command()
+def repair():
+    for j in Journal.query().all():
+        if j.entry is None or j.entry == "show":
+            Journal.delete_by_id(j.id)
 
 
 if __name__ == "__main__":
