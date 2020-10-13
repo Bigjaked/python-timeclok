@@ -371,6 +371,8 @@ def _journal_format_row(journal_id, journal_entry) -> str:
         for r in rows:
             all_rows.append(f"{' ' * indent}{r.strip()}")
         return "\n".join(all_rows)
+    else:
+        return journal_id_str + " " + journal_entry
 
 
 def _break_string_into_chunks_by_space(s: str, chunk_len: int) -> [str]:

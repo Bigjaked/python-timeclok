@@ -236,6 +236,7 @@ def journal(
         for i in records:
             for journal in i.journal_entries:
                 print(journal)
+
     if delete is not None:
         print(Journal.get_by_id(id))
         typer.confirm(f"Are you sure that you want to delete this record? ({id})?")
@@ -337,7 +338,9 @@ def delete(id_=Argument(None, help="The id of the time_clock record to delete"))
 
 @app.command()
 def repair():
+
     for j in Journal.query().all():
+        print(j.clok_id, j.time, j.entry)
         if j.entry is None or j.entry == "show":
             Journal.delete_by_id(j.id)
 
