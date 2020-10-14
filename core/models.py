@@ -308,8 +308,8 @@ class Clok(Model, SurrogatePK, SpanQuery):
         if journal:
             journals = [i for i in self.journal_entries]
             if journals:
-                j_info = "|".join([str(i) for i in journals])
-                clok_info += f"{j_info}"
+                j_info = "\n".join([str(i) for i in journals])
+                clok_info += f"\n{j_info}"
         return clok_info, h
 
     def add_journal(self, msg: str):
@@ -362,7 +362,7 @@ class Journal(Model, SurrogatePK, Tracked, SpanQuery):
 
 
 def _journal_format_row(journal_id, journal_entry) -> str:
-    journal_id_str = f" - ID: {journal_id:<4}"
+    journal_id_str = f" - JID: {journal_id:<4}"
     if len(journal_entry) > 80:
         indent = 6
         max_len = 80 - indent  # default terminal size minus indent
