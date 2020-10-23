@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Union
 
 from core.defines import DATE_FORMAT, DATE_TIME_FORMATS
@@ -53,10 +53,13 @@ def parse_date_time_junction(junction: str) -> (datetime, datetime):
 
 
 def parse_date_and_time(time: str, date: datetime = None) -> datetime:
-    if date is not None:
-        date_str = date.strftime(DATE_FORMAT)
-    else:
+    if time.startswith("_") or time.startswith("+"):
+        return parse_time_delta(time)
+
+    if date is None:
         date_str = datetime.now().strftime(DATE_FORMAT)
+    else:
+        date_str = date.strftime(DATE_FORMAT)
 
     if len(time) <= 11:
         date_time_str = f"{date_str} {time.upper()}"
@@ -76,3 +79,20 @@ def format_hours(hours: float) -> str:
     decimal = hours - h
     m = int(60 * decimal)
     return f"{h}H {m}M"
+
+
+def parse_time_delta(date: str) -> datetime:
+    """Parse values like -5m or +1h into datetime values"""
+    period = date[-1].lower()
+    prefix = date[0]
+    value = int(date[1:-1])
+    if period == "h":
+        delta = timedelta(hours=value)
+    elif period == "m":
+        delta = timedelta(minutes=value)
+    else:
+        raise ValueError(f"Can only parse hour or minute deltas not {prefix}")
+    if prefix == "_":
+        return datetime.now() - delta
+    else:
+        return datetime.now() + delta
